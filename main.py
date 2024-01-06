@@ -56,7 +56,7 @@ async def enqueue(ctx, track):
         {'url': audio_url, 'title': info['entries'][0]['title']}
     )
 
-    await ctx.send(f'Трек: {info['entries'][0]['title']} добавлен в очередь')
+    await ctx.send(f"Трек: {info['entries'][0]['title']} добавлен в очередь")
 
 
 async def play_queue(ctx):
@@ -70,12 +70,12 @@ async def play_queue(ctx):
             await ctx.author.voice.channel.connect()
 
         ctx.voice_client.play(discord.FFmpegPCMAudio(track['url']))
-        await ctx.send(f'Сейчас играет: {track['title']}')
+        await ctx.send(f"Сейчас играет: {track['title']}")
 
         while ctx.voice_client.is_playing():
             await asyncio.sleep(1)
 
-        await ctx.voice_client.disconnect()
+    await ctx.voice_client.disconnect()
 
 
 @bot.command(name='queue')
