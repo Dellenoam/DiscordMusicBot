@@ -69,7 +69,12 @@ async def play_queue(ctx):
         if not ctx.voice_client or not ctx.voice_client.is_connected():
             await ctx.author.voice.channel.connect()
 
-        ctx.voice_client.play(discord.FFmpegPCMAudio(track['url']))
+        ctx.voice_client.play(
+            discord.FFmpegPCMAudio(
+                track['url'],
+                before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -vn'
+            )
+        )
         await ctx.send(f"Сейчас играет: {track['title']}")
 
         while ctx.voice_client.is_playing():
