@@ -72,7 +72,7 @@ async def enqueue(ctx, query: str):
     guild_id = ctx.guild.id
 
     queues.setdefault(guild_id, []).append(
-        {'url': audio_url, 'title': title}
+        {'url': audio_url, 'title': title, 'ctx': ctx}
     )
 
     await ctx.respond(f"Трек: {title} добавлен в очередь")
@@ -84,6 +84,7 @@ async def play_queue(ctx):
 
     while queues[guild_id]:
         query = queues[guild_id].pop(0)
+        ctx = query['ctx']
 
         if not ctx.voice_client or not ctx.voice_client.is_connected():
             await ctx.author.voice.channel.connect()
