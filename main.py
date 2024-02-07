@@ -44,19 +44,31 @@ async def play(ctx, *, track):
         await play_queue(ctx)
 
 
-async def enqueue(ctx, track):
+async def enqueue(ctx, query):
     """Добавляет трек в очередь"""
     with ydl:
-        info = ydl.extract_info(f'ytsearch:{track}', download=False)
-        audio_url = info['entries'][0]['url']
+        if 'youtube.com' in query or 'youtu.be' in query:
+            info = ydl.extract_info(query, download=False)
+            audio_url = info.get('url')
+            title = info.get('title')
+        else:
+            info = ydl.extract_info(f'ytsearch:{query}', download=False)
+            if not info.get('entries'):
+                return await ctx.send('Трек не найден')
+            else:
+                audio_url = info['entries'][0].get('url')
+                title = info['entries'][0].get('title')
+
+    if audio_url is None:
+        return await ctx.send('Трек не найден')
 
     guild_id = ctx.guild.id
 
     queues.setdefault(guild_id, []).append(
-        {'url': audio_url, 'title': info['entries'][0]['title']}
+        {'url': audio_url, 'title': title}
     )
 
-    await ctx.send(f"Трек: {info['entries'][0]['title']} добавлен в очередь")
+    await ctx.send(f"Трек: {title} добавлен в очередь")
 
 
 async def play_queue(ctx):
@@ -64,18 +76,18 @@ async def play_queue(ctx):
     guild_id = ctx.guild.id
 
     while queues[guild_id]:
-        track = queues[guild_id].pop(0)
+        query = queues[guild_id].pop(0)
 
         if not ctx.voice_client or not ctx.voice_client.is_connected():
             await ctx.author.voice.channel.connect()
 
         ctx.voice_client.play(
             discord.FFmpegPCMAudio(
-                track['url'],
+                query['url'],
                 before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -vn'
             )
         )
-        await ctx.send(f"Сейчас играет: {track['title']}")
+        await ctx.send(f"Сейчас играет: {query['title']}")
 
         while ctx.voice_client.is_playing():
             await asyncio.sleep(1)
@@ -89,10 +101,9 @@ async def queue(ctx):
     guild_id = ctx.guild.id
 
     if queues.get(guild_id):
-        formatted_queue = "\n".join([f'{index + 1}. {track["title"]}' for index, track in enumerate(queues[guild_id])])
+        formatted_queue = "\n".join([f'{index + 1}. {query["title"]}' for index, query in enumerate(queues[guild_id])])
         message = f'Следующие треки:\n{formatted_queue}'
-        await ctx.send(message)
-        return
+        return await ctx.send(message)
 
     await ctx.send('Очередь пуста')
 
