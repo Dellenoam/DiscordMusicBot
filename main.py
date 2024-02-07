@@ -4,15 +4,20 @@ import dotenv
 import discord
 import yt_dlp
 from discord.ext import commands
+from discord.ui import View
 
 # Загружаем .env
 dotenv.load_dotenv()
 
-# События для обработки ботом
-intents = discord.Intents.all()
-
 # Создаем объект бота
-bot = commands.Bot(command_prefix='!', intents=intents)
+bot = commands.Bot()
+
+
+@bot.event
+async def on_ready():
+    await bot.change_presence(status=discord.Status.do_not_disturb, activity=discord.Game(name="Detroit: Become Human"))
+    print('Bot is online!')
+
 
 # Создаем объект для загрузки видео с YouTube
 ydl_opts = {
@@ -31,20 +36,21 @@ ydl = yt_dlp.YoutubeDL(ydl_opts)
 queues = dict()
 
 
-@bot.command(name='play')
-async def play(ctx, *, track):
+@bot.slash_command(name='play')
+async def play(ctx, *, query: str):
     """Команда для проигрывания трека и добавления его в очередь"""
-    if not ctx.author.voice:
-        await ctx.send('Ты должен быть подключен к каналу')
-        return
+    await ctx.defer()
 
-    await enqueue(ctx, track)
+    if not ctx.author.voice:
+        return await ctx.respond('Ты должен быть подключен к каналу')
+
+    await enqueue(ctx, query)
 
     if not ctx.voice_client or not ctx.voice_client.is_playing():
         await play_queue(ctx)
 
 
-async def enqueue(ctx, query):
+async def enqueue(ctx, query: str):
     """Добавляет трек в очередь"""
     with ydl:
         if 'youtube.com' in query or 'youtu.be' in query:
@@ -54,13 +60,13 @@ async def enqueue(ctx, query):
         else:
             info = ydl.extract_info(f'ytsearch:{query}', download=False)
             if not info.get('entries'):
-                return await ctx.send('Трек не найден')
+                return await ctx.respond('Трек не найден')
             else:
                 audio_url = info['entries'][0].get('url')
                 title = info['entries'][0].get('title')
 
     if audio_url is None:
-        return await ctx.send('Трек не найден')
+        return await ctx.respond('Трек не найден')
 
     guild_id = ctx.guild.id
 
@@ -68,7 +74,7 @@ async def enqueue(ctx, query):
         {'url': audio_url, 'title': title}
     )
 
-    await ctx.send(f"Трек: {title} добавлен в очередь")
+    await ctx.respond(f"Трек: {title} добавлен в очередь")
 
 
 async def play_queue(ctx):
@@ -87,7 +93,7 @@ async def play_queue(ctx):
                 before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -vn'
             )
         )
-        await ctx.send(f"Сейчас играет: {query['title']}")
+        await ctx.respond(f"Сейчас играет: {query['title']}", view=SkipQueueView())
 
         while ctx.voice_client.is_playing():
             await asyncio.sleep(1)
@@ -95,28 +101,29 @@ async def play_queue(ctx):
     await ctx.voice_client.disconnect()
 
 
-@bot.command(name='queue')
-async def queue(ctx):
-    """Отображает текущую очередь"""
-    guild_id = ctx.guild.id
+class SkipQueueView(View):
+    @discord.ui.button(label="Пропустить", style=discord.ButtonStyle.primary, emoji='⏭')
+    async def skip_button(self, button, interaction):
+        """Пропускает текущий трек"""
+        voice_client = interaction.guild.voice_client
+        if voice_client and voice_client.is_playing():
+            voice_client.stop()
+            return await interaction.response.send_message('Трек пропущен')
 
-    if queues.get(guild_id):
-        formatted_queue = "\n".join([f'{index + 1}. {query["title"]}' for index, query in enumerate(queues[guild_id])])
-        message = f'Следующие треки:\n{formatted_queue}'
-        return await ctx.send(message)
+        await interaction.reponse.send_message('Сейчас ничего не играет')
 
-    await ctx.send('Очередь пуста')
+    @discord.ui.button(label="Очередь", style=discord.ButtonStyle.primary, emoji='🎵')
+    async def queue_button(self, button, interaction):
+        """Отображает текущую очередь"""
+        guild_id = interaction.guild.id
 
+        if queues.get(guild_id):
+            formatted_queue = "\n".join(
+                [f'{index + 1}. {query["title"]}' for index, query in enumerate(queues[guild_id])])
+            message = f'Следующие треки:\n{formatted_queue}'
+            return await interaction.response.send_message(message)
 
-@bot.command(name='skip')
-async def skip(ctx):
-    """Пропускает текущий трек"""
-    if ctx.voice_client and ctx.voice_client.is_playing():
-        ctx.voice_client.stop()
-        await ctx.send('Трек пропущен')
-        return
-
-    await ctx.send('Сейчас ничего не играет')
+        await interaction.response.send_message('Очередь пуста')
 
 
 # Запускаем бота
