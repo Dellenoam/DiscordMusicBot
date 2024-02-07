@@ -13,6 +13,7 @@ dotenv.load_dotenv()
 bot = commands.Bot()
 
 
+# По готовности бота задается статус, активность и выводится сообщение о начале работы
 @bot.event
 async def on_ready():
     await bot.change_presence(status=discord.Status.do_not_disturb, activity=discord.Game(name="Detroit: Become Human"))
@@ -101,6 +102,7 @@ async def play_queue(ctx):
     await ctx.voice_client.disconnect()
 
 
+# Класс View с кнопками "Пропустить" и "Очередь"
 class SkipQueueView(View):
     @discord.ui.button(label="Пропустить", style=discord.ButtonStyle.primary, emoji='⏭')
     async def skip_button(self, button, interaction):
