@@ -21,21 +21,27 @@ class SkipButton(Button):
             return await interaction.response.send_message('Ты должен быть в голосовом канале', ephemeral=True)
 
         guild_id = interaction.guild.id
-        skip_votes[guild_id].add(interaction.user.id)
-        channel = interaction.user.voice.channel
         voice_client = interaction.guild.voice_client
-        total_members = len(channel.members)
+        total_members = len(interaction.user.voice.channel.voice_states.keys()) - 1
 
-        if voice_client:
-            if len(skip_votes[guild_id]) / total_members >= 0.4:
+        if voice_client and voice_client.is_playing():
+            if interaction.user.id in skip_votes[guild_id]:
+                return await interaction.response.send_message('Ты уже проголосовал', ephemeral=True)
+
+            skip_votes[guild_id].add(interaction.user.id)
+
+            if len(skip_votes[guild_id]) / total_members >= 0.5:
                 voice_client.stop()
+                skip_votes[guild_id].clear()
                 return await interaction.response.send_message('Трек пропущен')
 
             return await interaction.response.send_message(
-                f'Ты проголосовал за пропуск трека. Осталось голосов {round(total_members * 0.4)}', ephemeral=True
+                f'Ты проголосовал за пропуск трека. Осталось голосов '
+                f'{round(total_members * 0.4) - len(skip_votes[guild_id])}',
+                ephemeral=True
             )
 
-        await interaction.reponse.send_message('Сейчас ничего не играет')
+        await interaction.response.send_message('Сейчас ничего не играет')
 
 
 # Кнопка для просмотра очереди треков
