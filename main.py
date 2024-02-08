@@ -39,15 +39,16 @@ ydl = yt_dlp.YoutubeDL(ydl_opts)
 queues = dict()
 
 
-@bot.slash_command(name='play')
+@bot.slash_command(name='play', timeout=None)
 async def play(ctx, *, query: str):
     """Команда для проигрывания трека и добавления его в очередь"""
-    await ctx.defer()
-
     if not ctx.author.voice:
-        return await ctx.respond('Ты должен быть подключен к каналу')
+        return await ctx.respond('Ты должен быть в голосовом канале', ephemeral=True)
 
-    await enqueue(ctx, query)
+    try:
+        await enqueue(ctx, query)
+    except yt_dlp.utils.DownloadError:
+        return await ctx.respond('Введена некорректная ссылка', ephemeral=True)
 
     if not ctx.voice_client or not ctx.voice_client.is_playing():
         await play_queue(ctx)
@@ -58,17 +59,13 @@ async def enqueue(ctx, query: str):
     with ydl:
         if 'youtube.com' in query or 'youtu.be' in query:
             info = ydl.extract_info(query, download=False)
-            audio_url = info.get('url')
-            title = info.get('title')
+            audio_url = info['url']
+            title = info['title']
         else:
+            await ctx.defer()
             info = ydl.extract_info(f'ytsearch:{query}', download=False)
-            if not info.get('entries'):
-                return await ctx.respond('Трек не найден')
-            audio_url = info['entries'][0].get('url')
-            title = info['entries'][0].get('title')
-
-    if audio_url is None:
-        return await ctx.respond('Трек не найден')
+            audio_url = info['entries'][0]['url']
+            title = info['entries'][0]['title']
 
     guild_id = ctx.guild.id
     track_info = {'url': audio_url, 'title': title, 'ctx': ctx}

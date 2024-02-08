@@ -1,5 +1,8 @@
+from collections import defaultdict
 from discord.ui import Button
 import discord
+
+skip_votes = defaultdict(set)
 
 
 # Кнопка для пропуска трека
@@ -14,10 +17,23 @@ class SkipButton(Button):
     @staticmethod
     async def button_handler(interaction):
         """Пропускает текущий трек"""
+        if not interaction.user.voice:
+            return await interaction.response.send_message('Ты должен быть в голосовом канале', ephemeral=True)
+
+        guild_id = interaction.guild.id
+        skip_votes[guild_id].add(interaction.user.id)
+        channel = interaction.user.voice.channel
         voice_client = interaction.guild.voice_client
-        if voice_client and voice_client.is_playing():
-            voice_client.stop()
-            return await interaction.response.send_message('Трек пропущен')
+        total_members = len(channel.members)
+
+        if voice_client:
+            if len(skip_votes[guild_id]) / total_members >= 0.4:
+                voice_client.stop()
+                return await interaction.response.send_message('Трек пропущен')
+
+            return await interaction.response.send_message(
+                f'Ты проголосовал за пропуск трека. Осталось голосов {round(total_members * 0.4)}', ephemeral=True
+            )
 
         await interaction.reponse.send_message('Сейчас ничего не играет')
 
@@ -56,11 +72,14 @@ class RemoveButton(Button):
         self.callback = self.button_callback
 
     async def button_callback(self, interaction):
-        if interaction.user == self.track_info['ctx'].author:
-            if (not self.queues[interaction.guild.id]
-                    or not [track for track in self.queues[interaction.guild.id]][0] == self.track_info):
-                return await interaction.response.send_message(f'Трек {self.track_info["title"]} отсутствует в очереди')
-            self.queues[interaction.guild.id].remove(self.track_info)
-            await interaction.response.send_message(f'Трек {self.track_info["title"]} был удален из очереди')
-        else:
-            await interaction.response.send_message('Ты не можешь удалять треки, добавленные другими пользователями')
+        if interaction.user != self.track_info['ctx'].author:
+            return await interaction.response.send_message(
+                'Ты не можешь удалять треки, добавленные другими пользователями'
+            )
+
+        if (not self.queues[interaction.guild.id]
+                or not [track for track in self.queues[interaction.guild.id]][0] == self.track_info):
+            return await interaction.response.send_message(f'Трек {self.track_info["title"]} отсутствует в очереди')
+
+        self.queues[interaction.guild.id].remove(self.track_info)
+        return await interaction.response.send_message(f'Трек {self.track_info["title"]} был удален из очереди')
