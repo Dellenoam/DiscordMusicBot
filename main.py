@@ -4,7 +4,9 @@ import dotenv
 import discord
 import yt_dlp
 from discord.ext import commands
-from discord.ui import View
+
+import buttons
+from buttons import SkipButton, QueueButton, RemoveButton
 
 # Загружаем .env
 dotenv.load_dotenv()
@@ -62,20 +64,22 @@ async def enqueue(ctx, query: str):
             info = ydl.extract_info(f'ytsearch:{query}', download=False)
             if not info.get('entries'):
                 return await ctx.respond('Трек не найден')
-            else:
-                audio_url = info['entries'][0].get('url')
-                title = info['entries'][0].get('title')
+            audio_url = info['entries'][0].get('url')
+            title = info['entries'][0].get('title')
 
     if audio_url is None:
         return await ctx.respond('Трек не найден')
 
     guild_id = ctx.guild.id
-
+    track_info = {'url': audio_url, 'title': title, 'ctx': ctx}
     queues.setdefault(guild_id, []).append(
-        {'url': audio_url, 'title': title, 'ctx': ctx}
+        track_info
     )
 
-    await ctx.respond(f"Трек: {title} добавлен в очередь")
+    view = discord.ui.View()
+    view.add_item(RemoveButton(queues, track_info))
+    view.add_item(QueueButton(queue, queues))
+    await ctx.respond(f"Трек: {title} добавлен в очередь", view=view)
 
 
 async def play_queue(ctx):
@@ -95,7 +99,11 @@ async def play_queue(ctx):
                 before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -vn'
             )
         )
-        await ctx.respond(f"Сейчас играет: {query['title']}", view=SkipQueueView())
+
+        view = discord.ui.View()
+        view.add_item(SkipButton())
+        view.add_item(QueueButton(queue, queues))
+        await ctx.respond(f"Сейчас играет: {query['title']}", view=view)
 
         while ctx.voice_client.is_playing():
             await asyncio.sleep(1)
@@ -103,31 +111,16 @@ async def play_queue(ctx):
     await ctx.voice_client.disconnect()
 
 
-# Класс View с кнопками "Пропустить" и "Очередь"
-class SkipQueueView(View):
-    @discord.ui.button(label="Пропустить", style=discord.ButtonStyle.primary, emoji='⏭')
-    async def skip_button(self, button, interaction):
-        """Пропускает текущий трек"""
-        voice_client = interaction.guild.voice_client
-        if voice_client and voice_client.is_playing():
-            voice_client.stop()
-            return await interaction.response.send_message('Трек пропущен')
+@bot.slash_command(name='skip', description='Пропустить текущий трек')
+async def skip(interaction):
+    """Пропускает текущий трек"""
+    await buttons.SkipButton.button_handler(interaction)
 
-        await interaction.reponse.send_message('Сейчас ничего не играет')
 
-    @discord.ui.button(label="Очередь", style=discord.ButtonStyle.primary, emoji='🎵')
-    async def queue_button(self, button, interaction):
-        """Отображает текущую очередь"""
-        guild_id = interaction.guild.id
-
-        if queues.get(guild_id):
-            formatted_queue = "\n".join(
-                [f'{index + 1}. {query["title"]}' for index, query in enumerate(queues[guild_id])])
-            message = f'Следующие треки:\n{formatted_queue}'
-            return await interaction.response.send_message(message)
-
-        await interaction.response.send_message('Очередь пуста')
-
+@bot.slash_command(name='queue', description='Посмотреть текущую очередь')
+async def queue(interaction):
+    """Отображает текущую очередь"""
+    await buttons.QueueButton.button_handler(interaction, queues)
 
 # Запускаем бота
 bot.run(os.getenv('DISCORD_TOKEN'))

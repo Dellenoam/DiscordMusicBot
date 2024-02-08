@@ -2,3 +2,4 @@ venv
 .idea
 .DS_STORE
 .env
+__pycache__
