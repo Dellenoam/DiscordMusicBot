@@ -1,12 +1,9 @@
 import asyncio
 import os
 import re
-
 import dotenv
 import discord
 import yt_dlp
-from discord import embeds
-
 import buttons
 from buttons import SkipButton, QueueButton, RemoveButton, skip_votes
 from discord.ext import commands
@@ -52,21 +49,22 @@ async def play(ctx, *, query: str):
     thinking_response = await ctx.respond('Думаю над ответом 🤔')
 
     try:
-        await enqueue(ctx, query, thinking_response)
+        await enqueue(ctx, query)
     except (yt_dlp.utils.DownloadError, yt_dlp.utils.ExtractorError):
+        await thinking_response.delete()
         return await ctx.respond('Введена некорректная ссылка', ephemeral=True)
 
     if not ctx.voice_client or not ctx.voice_client.is_playing():
         await play_queue(ctx)
 
 
-async def enqueue(ctx, query: str, thinking_response):
+async def enqueue(ctx, query: str):
     """Добавляет трек в очередь"""
     with ydl:
         youtube_url_regex = re.compile(r'(https?://)?(www\.)?(youtube\.com|youtu\.?be)/?$')
         youtube_url_correct_regex = re.compile(r'(https?://)?(www\.)?(youtube\.com|youtu\.?be)/.*$')
         if bool(youtube_url_regex.match(query)):
-            raise yt_dlp.utils.ExtractorError('Введена ссылка на YouTube, а не на видео с него')
+            raise yt_dlp.utils.ExtractorError('ERROR: Введена ссылка на YouTube, а не на видео с него')
         elif bool(youtube_url_correct_regex.match(query)):
             info = ydl.extract_info(query, download=False)
             audio_url = info['url']
