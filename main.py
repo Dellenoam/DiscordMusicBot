@@ -3,10 +3,9 @@ import os
 import dotenv
 import discord
 import yt_dlp
-from discord.ext import commands
-
 import buttons
-from buttons import SkipButton, QueueButton, RemoveButton
+from buttons import SkipButton, QueueButton, RemoveButton, skip_votes
+from discord.ext import commands
 
 # Загружаем .env
 dotenv.load_dotenv()
@@ -62,7 +61,6 @@ async def enqueue(ctx, query: str):
             audio_url = info['url']
             title = info['title']
         else:
-            await ctx.defer()
             info = ydl.extract_info(f'ytsearch:{query}', download=False)
             audio_url = info['entries'][0]['url']
             title = info['entries'][0]['title']
@@ -104,6 +102,8 @@ async def play_queue(ctx):
 
         while ctx.voice_client.is_playing():
             await asyncio.sleep(1)
+
+        skip_votes.clear()
 
     await ctx.voice_client.disconnect()
 

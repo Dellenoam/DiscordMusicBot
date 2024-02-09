@@ -37,8 +37,7 @@ class SkipButton(Button):
 
             return await interaction.response.send_message(
                 f'Ты проголосовал за пропуск трека. Осталось голосов '
-                f'{round(total_members * 0.4) - len(skip_votes[guild_id])}',
-                ephemeral=True
+                f'{round(total_members * 0.5) - len(skip_votes[guild_id])}'
             )
 
         await interaction.response.send_message('Сейчас ничего не играет')
@@ -80,7 +79,7 @@ class RemoveButton(Button):
     async def button_callback(self, interaction):
         if interaction.user != self.track_info['ctx'].author:
             return await interaction.response.send_message(
-                'Ты не можешь удалять треки, добавленные другими пользователями'
+                'Ты не можешь удалять треки, добавленные другими пользователями', ephemeral=True
             )
 
         if (not self.queues[interaction.guild.id]
