@@ -40,7 +40,7 @@ class RemoveButton(Button):
                 'Ты не можешь удалять треки, добавленные другими пользователями', ephemeral=True
             )
 
-        if self.queues.get(interaction.guild_id) and self.queues[interaction.guild_id][0] != self.track_info:
+        if self.queues.get(interaction.guild_id) and self.track_info not in self.queues[interaction.guild_id]:
             return await interaction.response.send_message(f'Трек {self.track_info["title"]} отсутствует в очереди')
 
         self.queues[interaction.guild_id].remove(self.track_info)

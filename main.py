@@ -78,11 +78,11 @@ async def enqueue(ctx, query: str):
         if bool(not_video_url_regex.match(query)):
             raise yt_dlp.utils.ExtractorError('ERROR: Введена ссылка на YouTube, а не на видео с него')
         if bool(video_url_regex.match(query)):
-            info = ydl.extract_info(query, download=False)
+            info = await asyncio.to_thread(lambda: ydl.extract_info(query, download=False))
             audio_url = info['url']
             title = info['title']
         else:
-            info = ydl.extract_info(f'ytsearch:{query}', download=False)
+            info = await asyncio.to_thread(lambda: ydl.extract_info(f'ytsearch:{query}', download=False))
             if not info['entries']:
                 return await ctx.respond('Ничего не нашел по твоему запросу')
             audio_url = info['entries'][0]['url']
