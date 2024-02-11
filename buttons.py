@@ -20,27 +20,27 @@ class SkipButton(Button):
         if not interaction.user.voice:
             return await interaction.response.send_message('Ты должен быть в голосовом канале', ephemeral=True)
 
-        guild_id = interaction.guild.id
+        guild_id = interaction.guild_id
         voice_client = interaction.guild.voice_client
+
+        if not voice_client:
+            return await interaction.response.send_message('Сейчас ничего не играет', ephemeral=True)
+
+        if interaction.user.id in skip_votes[guild_id]:
+            return await interaction.response.send_message('Ты уже проголосовал', ephemeral=True)
+
+        skip_votes[guild_id].add(interaction.user.id)
         total_members = len(interaction.user.voice.channel.voice_states.keys()) - 1
 
-        if voice_client and voice_client.is_playing():
-            if interaction.user.id in skip_votes[guild_id]:
-                return await interaction.response.send_message('Ты уже проголосовал', ephemeral=True)
-
-            skip_votes[guild_id].add(interaction.user.id)
-
-            if len(skip_votes[guild_id]) / total_members >= 0.5:
-                voice_client.stop()
-                skip_votes[guild_id].clear()
-                return await interaction.response.send_message('Трек пропущен')
-
+        if not len(skip_votes[guild_id]) / total_members >= 0.5:
             return await interaction.response.send_message(
                 f'Ты проголосовал за пропуск трека. Осталось голосов '
                 f'{round(total_members * 0.5) - len(skip_votes[guild_id])}'
             )
 
-        await interaction.response.send_message('Сейчас ничего не играет')
+        voice_client.stop()
+        skip_votes[guild_id].clear()
+        return await interaction.response.send_message('Трек пропущен')
 
 
 # Кнопка для просмотра очереди треков
@@ -57,7 +57,7 @@ class QueueButton(Button):
     @staticmethod
     async def button_handler(interaction, queues):
         """Отображает текущую очередь"""
-        guild_id = interaction.guild.id
+        guild_id = interaction.guild_id
 
         if queues.get(guild_id):
             formatted_queue = "\n".join(
@@ -77,14 +77,13 @@ class RemoveButton(Button):
         self.callback = self.button_callback
 
     async def button_callback(self, interaction):
-        if interaction.user != self.track_info['ctx'].author:
+        if interaction.user != self.track_info['author']:
             return await interaction.response.send_message(
                 'Ты не можешь удалять треки, добавленные другими пользователями', ephemeral=True
             )
 
-        if (not self.queues[interaction.guild.id]
-                or not [track for track in self.queues[interaction.guild.id]][0] == self.track_info):
+        if not self.queues[interaction.guild_id][0] == self.track_info:
             return await interaction.response.send_message(f'Трек {self.track_info["title"]} отсутствует в очереди')
 
-        self.queues[interaction.guild.id].remove(self.track_info)
+        self.queues[interaction.guild_id].remove(self.track_info)
         return await interaction.response.send_message(f'Трек {self.track_info["title"]} был удален из очереди')

@@ -18,13 +18,15 @@ bot = commands.Bot()
 # По готовности бота задается статус, активность и выводится сообщение о начале работы
 @bot.event
 async def on_ready():
-    await bot.change_presence(status=discord.Status.do_not_disturb, activity=discord.Game(name="Detroit: Become Human"))
+    activity = discord.Game(name="Detroit: Become Human")
+    await bot.change_presence(status=discord.Status.do_not_disturb, activity=activity)
     print('Bot is online!')
 
 
 # Создаем объект для загрузки видео с YouTube
 ydl_opts = {
     'quiet': True,
+    'noplaylist': True,
     'format': 'bestaudio/best',
     'postprocessors': [{
         'key': 'FFmpegExtractAudio',
@@ -39,6 +41,8 @@ ydl = yt_dlp.YoutubeDL(ydl_opts)
 # Очередь музыки
 queues = dict()
 
+guild_semaphore = dict()
+
 
 @bot.slash_command(name='play')
 async def play(ctx, *, query: str):
@@ -46,87 +50,91 @@ async def play(ctx, *, query: str):
     if not ctx.author.voice:
         return await ctx.respond('Ты должен быть в голосовом канале', ephemeral=True)
 
-    thinking_response = await ctx.respond('Думаю над ответом 🤔')
+    await ctx.respond('Думаю над ответом 🤔')
 
     try:
-        await enqueue(ctx, query)
+        message_to_reply = await enqueue(ctx, query)
     except (yt_dlp.utils.DownloadError, yt_dlp.utils.ExtractorError):
-        await thinking_response.delete()
-        return await ctx.respond('Введена некорректная ссылка', ephemeral=True)
+        return await ctx.respond('Введена некорректная ссылка')
 
-    if not ctx.voice_client or not ctx.voice_client.is_playing():
-        await play_queue(ctx)
+    semaphore = guild_semaphore.get(ctx.guild_id)
+    if semaphore is None:
+        semaphore = asyncio.Semaphore(1)
+        guild_semaphore[ctx.guild_id] = semaphore
+    async with semaphore:
+        await play_queue(ctx, message_to_reply)
 
 
 async def enqueue(ctx, query: str):
     """Добавляет трек в очередь"""
     with ydl:
-        youtube_url_regex = re.compile(r'(https?://)?(www\.)?(youtube\.com|youtu\.?be)/?$')
-        youtube_url_correct_regex = re.compile(r'(https?://)?(www\.)?(youtube\.com|youtu\.?be)/.*$')
-        if bool(youtube_url_regex.match(query)):
+        not_video_url_regex = re.compile(r'^(?:https?://)?(?:www\.)?(youtube.com|youtu.be)/?$')
+        video_url_regex = re.compile(
+            r'^(?:https?://)?(?:www\.)?(?:youtu\.be/|youtube\.com/(?:embed/|v/|watch\?v=|watch\?.+&v=))([\w-]{11})$'
+        )
+        if bool(not_video_url_regex.match(query)):
             raise yt_dlp.utils.ExtractorError('ERROR: Введена ссылка на YouTube, а не на видео с него')
-        elif bool(youtube_url_correct_regex.match(query)):
+        if bool(video_url_regex.match(query)):
             info = ydl.extract_info(query, download=False)
             audio_url = info['url']
             title = info['title']
         else:
             info = ydl.extract_info(f'ytsearch:{query}', download=False)
+            if not info['entries']:
+                return await ctx.respond('Ничего не нашел по твоему запросу')
             audio_url = info['entries'][0]['url']
             title = info['entries'][0]['title']
 
-    guild_id = ctx.guild.id
-    track_info = {'url': audio_url, 'title': title, 'ctx': ctx}
-    queues.setdefault(guild_id, []).append(
-        track_info
-    )
+    guild_id = ctx.guild_id
+    track_info = {'url': audio_url, 'title': title, 'author': ctx.author}
+    queues.setdefault(guild_id, []).append(track_info)
 
     view = discord.ui.View()
     view.add_item(RemoveButton(queues, track_info))
-    view.add_item(QueueButton(queue, queues))
-    await ctx.respond(f"Трек: {title} добавлен в очередь", view=view)
+    return await ctx.respond(f"Трек: {title} добавлен в очередь", view=view)
 
 
-async def play_queue(ctx):
+async def play_queue(ctx, message_to_reply):
     """Проигрывает треки из очереди"""
     guild_id = ctx.guild.id
 
-    while queues[guild_id]:
-        query = queues[guild_id].pop(0)
-        ctx = query['ctx']
+    query = queues[guild_id].pop(0)
 
-        if not ctx.voice_client or not ctx.voice_client.is_connected():
-            await ctx.author.voice.channel.connect()
+    if not ctx.voice_client:
+        await ctx.author.voice.channel.connect()
 
-        ctx.voice_client.play(
-            discord.FFmpegPCMAudio(
-                query['url'],
-                before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -vn'
-            )
+    ctx.voice_client.play(
+        discord.FFmpegPCMAudio(
+            query['url'],
+            before_options='-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -vn'
         )
+    )
 
-        view = discord.ui.View()
-        view.add_item(SkipButton())
-        view.add_item(QueueButton(queue, queues))
-        await ctx.respond(f"Сейчас играет: {query['title']}", view=view)
+    view = discord.ui.View()
+    view.add_item(SkipButton())
+    view.add_item(QueueButton(queue, queues))
+    await message_to_reply.reply(f"Сейчас играет: {query['title']}", view=view)
 
-        while ctx.voice_client.is_playing():
-            await asyncio.sleep(1)
+    while ctx.voice_client.is_playing():
+        await asyncio.sleep(1)
 
-        skip_votes.clear()
+    skip_votes.clear()
 
-    await ctx.voice_client.disconnect()
+    if not queues[guild_id]:
+        await ctx.voice_client.disconnect()
 
 
 @bot.slash_command(name='skip', description='Пропустить текущий трек')
-async def skip(interaction):
+async def skip(ctx):
     """Пропускает текущий трек"""
-    await buttons.SkipButton.button_handler(interaction)
+    await buttons.SkipButton.button_handler(ctx)
 
 
 @bot.slash_command(name='queue', description='Посмотреть текущую очередь')
-async def queue(interaction):
+async def queue(ctx):
     """Отображает текущую очередь"""
-    await buttons.QueueButton.button_handler(interaction, queues)
+    await buttons.QueueButton.button_handler(ctx, queues)
+
 
 # Запускаем бота
 bot.run(os.getenv('DISCORD_TOKEN'))
