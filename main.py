@@ -4,8 +4,8 @@ import re
 import dotenv
 import discord
 import yt_dlp
-import buttons
-from buttons import SkipButton, QueueButton, RemoveButton, skip_votes
+from buttons import SkipButton, QueueButton, RemoveButton
+from handlers import skip_handler, queue_handler, skip_votes
 from discord.ext import commands
 
 # Загружаем .env
@@ -41,6 +41,7 @@ ydl = yt_dlp.YoutubeDL(ydl_opts)
 # Очередь музыки
 queues = dict()
 
+# Семафоры для каждого сервера
 guild_semaphore = dict()
 
 
@@ -62,6 +63,8 @@ async def play(ctx, *, query: str):
         semaphore = asyncio.Semaphore(1)
         guild_semaphore[ctx.guild_id] = semaphore
     async with semaphore:
+        if not queues.get(ctx.guild_id):
+            return
         await play_queue(ctx, message_to_reply)
 
 
@@ -112,13 +115,14 @@ async def play_queue(ctx, message_to_reply):
 
     view = discord.ui.View()
     view.add_item(SkipButton())
-    view.add_item(QueueButton(queue, queues))
+    view.add_item(QueueButton(queues))
     await message_to_reply.reply(f"Сейчас играет: {query['title']}", view=view)
 
     while ctx.voice_client.is_playing():
         await asyncio.sleep(1)
 
-    skip_votes.clear()
+    if skip_votes.get(guild_id):
+        del skip_votes[guild_id]
 
     if not queues[guild_id]:
         del guild_semaphore[guild_id]
@@ -128,13 +132,13 @@ async def play_queue(ctx, message_to_reply):
 @bot.slash_command(name='skip', description='Пропустить текущий трек')
 async def skip(ctx):
     """Пропускает текущий трек"""
-    await buttons.SkipButton.button_handler(ctx)
+    await skip_handler(ctx)
 
 
 @bot.slash_command(name='queue', description='Посмотреть текущую очередь')
 async def queue(ctx):
     """Отображает текущую очередь"""
-    await buttons.QueueButton.button_handler(ctx, queues)
+    await queue_handler(ctx, queues)
 
 
 # Запускаем бота
