@@ -121,6 +121,7 @@ async def play_queue(ctx, message_to_reply):
     skip_votes.clear()
 
     if not queues[guild_id]:
+        del guild_semaphore[guild_id]
         await ctx.voice_client.disconnect()
 
 
