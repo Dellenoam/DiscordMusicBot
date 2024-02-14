@@ -92,7 +92,7 @@ async def enqueue(ctx, query: str):
     track_info = {'url': audio_url, 'title': title, 'author': ctx.author}
     queues.setdefault(guild_id, []).append(track_info)
 
-    view = discord.ui.View()
+    view = discord.ui.View(timeout=None)
     view.add_item(RemoveButton(queues, track_info))
     return await ctx.respond(f"Трек: {title} добавлен в очередь", view=view)
 
@@ -113,7 +113,7 @@ async def play_queue(ctx, message_to_reply):
         )
     )
 
-    view = discord.ui.View()
+    view = discord.ui.View(timeout=None)
     view.add_item(SkipButton())
     view.add_item(QueueButton(queues))
     await message_to_reply.reply(f"Сейчас играет: {query['title']}", view=view)
