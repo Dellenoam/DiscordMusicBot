@@ -1,13 +1,9 @@
 # Music Bot
 
-This is a simple music bot written in Python using the Discord.py library and yt_dlp for YouTube downloads.
+This is a simple music bot written in Python using the Pycord library and yt_dlp to search and retrieve audio tracks from YouTube.
+Users can add tracks to the queue, skip the current track, remove track from queue and view the queue.
 
 ## Getting Started
-
-### Prerequisites
-
-- Python 3.x
-- pip (Python package installer)
 
 ### Installation
 
@@ -22,20 +18,35 @@ This is a simple music bot written in Python using the Discord.py library and yt
     ```bash
     cd DiscordMusicBot
     ```
+3. Set up a virtual environment
+   
+   For Windows
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate
+   ```
+   For Linux/MacOS
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
 
-3. Install dependencies:
+4. Install dependencies:
 
     ```bash
     pip install -r requirements.txt
     ```
+5. Install ffmpeg:
+   
+    You also need ffmpeg to work, you can download it from ffmpeg.org or using a package manager. 
 
-4. Create a `.env` file in the project root and add your Discord bot token:
+6. Create a `.env` file in the project root and add your Discord bot token:
 
     ```
     DISCORD_TOKEN=your_discord_token_here
     ```
 
-5. Run the bot:
+7. Run the bot:
 
     ```bash
     python main.py
@@ -43,9 +54,10 @@ This is a simple music bot written in Python using the Discord.py library and yt
 
 ## Usage
 
-- Use the `!play` command to play a track and add it to the queue.
-- Use the `!queue` command to display the current queue.
-- Use the `!skip` command to skip the current track.
+- To play a track and add it to the queue, use the /play command.
+- To view the current queue, use the /queue command or click on the 'Очередь' button that is sent along with the message about the playing track.
+- To skip the current track, use the /skip command or click on the 'Пропустить' button that is sent along with the message about the playing track.
+- If you want to remove a track from the queue, click on the 'Удалить' button that is sent along with the message about the added track.
 
 Feel free to customize and extend the functionality as needed!
 
@@ -55,4 +67,4 @@ Contributions are welcome. Please fork the repository, make your changes, and su
 
 ## License
 
-This project is licensed under the Apache License - see the LICENSE file for details.
+This project is licensed under the Apache License 2.0 - see the LICENSE file for details.
