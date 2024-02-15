@@ -1,47 +1,98 @@
+from typing import Dict
 from discord.ui import Button
 from handlers import skip_handler, queue_handler
 import discord
+from discord.interactions import Interaction
 
 
-# Кнопка для пропуска трека
 class SkipButton(Button):
-    def __init__(self):
-        super().__init__(label="Пропустить", style=discord.ButtonStyle.gray, emoji='⏭')
+    """
+    Класс кнопки для пропуска текущего трека.
+
+    Attributes:
+        label (str): Текст кнопки.
+        style (discord.ButtonStyle): Стиль кнопки.
+        emoji (str): Эмодзи для кнопки.
+
+    Methods:
+        button_callback: Обработчик нажатия кнопки для пропуска текущего трека.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(label="Пропустить", style=discord.ButtonStyle.gray, emoji="⏭")
         self.callback = self.button_callback
 
     @staticmethod
-    async def button_callback(interaction):
+    async def button_callback(interaction: Interaction) -> None:
         """Пропускает текущий трек"""
         await skip_handler(interaction)
 
 
-# Кнопка для просмотра очереди треков
 class QueueButton(Button):
-    def __init__(self, queues):
-        super().__init__(label="Очередь", style=discord.ButtonStyle.gray, emoji='🎵')
+    """
+    Класс кнопки для просмотра текущей очереди.
+
+    Attributes:
+        label (str): Текст кнопки.
+        style (discord.ButtonStyle): Стиль кнопки.
+        emoji (str): Эмодзи для кнопки.
+        queues (dict): Словарь очередей.
+
+    Methods:
+        button_callback: Обработчик нажатия кнопки для просмотра текущей очереди.
+    """
+
+    def __init__(self, queues: Dict[int, list]) -> None:
+        super().__init__(label="Очередь", style=discord.ButtonStyle.gray, emoji="🎵")
         self.queues = queues
         self.callback = self.button_callback
 
-    async def button_callback(self, interaction):
+    async def button_callback(self, interaction) -> None:
         await queue_handler(interaction, self.queues)
 
 
-# Кнопка для удаления добавленного трека из очереди
 class RemoveButton(Button):
-    def __init__(self, queues, track_info):
-        super().__init__(label='Удалить', style=discord.ButtonStyle.gray, emoji='❌')
+    """
+    Класс кнопки для удаления трека из очереди.
+
+    Attributes:
+        label (str): Текст кнопки.
+        style (discord.ButtonStyle): Стиль кнопки.
+        emoji (str): Эмодзи для кнопки.
+        queues (dict): Словарь очередей.
+        track_info (dict): Информация о треке.
+
+    Methods:
+        button_callback: Обработчик нажатия кнопки для удаления трека из очереди.
+    """
+
+    def __init__(self, queues: Dict[int, list], track_info: dict) -> None:
+        super().__init__(label="Удалить", style=discord.ButtonStyle.gray, emoji="❌")
         self.queues = queues
         self.track_info = track_info
         self.callback = self.button_callback
 
-    async def button_callback(self, interaction):
-        if interaction.user != self.track_info['author']:
-            return await interaction.response.send_message(
-                'Ты не можешь удалять треки, добавленные другими пользователями', ephemeral=True
-            )
+    async def button_callback(self, interaction: Interaction) -> None:
+        """
+        Удаляет трек из очереди при нажатии кнопки.
 
-        if self.queues.get(interaction.guild_id) and self.track_info not in self.queues[interaction.guild_id]:
-            return await interaction.response.send_message(f'Трек {self.track_info["title"]} отсутствует в очереди')
+        Parameters:
+            interaction (Interaction): Взаимодействие с кнопкой.
+        """
+        if interaction.user != self.track_info["author"]:
+            await interaction.response.send_message(
+                "Ты не можешь удалять треки, добавленные другими пользователями",
+                ephemeral=True,
+            )
+            return
+
+        if self.track_info not in self.queues[interaction.guild_id]:
+            await interaction.response.send_message(
+                f'Трек {self.track_info["title"]} отсутствует в очереди'
+            )
+            return
 
         self.queues[interaction.guild_id].remove(self.track_info)
-        return await interaction.response.send_message(f'Трек {self.track_info["title"]} был удален из очереди')
+        await interaction.response.send_message(
+            f'Трек {self.track_info["title"]} был удален из очереди'
+        )
