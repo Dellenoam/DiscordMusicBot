@@ -15,6 +15,10 @@ from handlers import skip_handler, queue_handler, skip_votes
 # Загружаем .env
 dotenv.load_dotenv()
 
+token = os.getenv("DISCORD_TOKEN")
+if not token:
+    raise ValueError("DISCORD_TOKEN environment variable is not set or empty.")
+
 # Создаем объект бота
 bot = commands.Bot()
 
@@ -204,5 +208,5 @@ async def queue(ctx: ApplicationContext) -> None:
     await queue_handler(ctx.interaction, queues)
 
 
-# Запускаем бота
-bot.run(os.getenv("DISCORD_TOKEN"))
+# Запускаем бота, если токен присутствует
+bot.run(token)
