@@ -9,7 +9,7 @@ from discord.ext import commands
 from discord.commands.context import ApplicationContext
 from discord.webhook import WebhookMessage
 import yt_dlp
-from buttons import SkipButton, QueueButton, RemoveButton
+from buttons import SkipButton, QueueButton, RemoveButton, SearchResultSelect
 from handlers import skip_handler, queue_handler, skip_votes
 from models import TrackInfo
 
@@ -132,20 +132,33 @@ async def enqueue(ctx: ApplicationContext, query: str) -> Optional[WebhookMessag
             title = info["title"]
         else:
             info = await asyncio.to_thread(
-                lambda: ydl.extract_info(f"ytsearch:{query}", download=False)
+                lambda: ydl.extract_info(f"ytsearch5:{query}", download=False)
             )
-            if not info.get("entries"):
-                await ctx.respond("Ничего не нашел по твоему запросу")
+            entries = info.get("entries") or []
+            if not entries:
+                await ctx.followup.send("Ничего не нашел по твоему запросу")
                 return
-            audio_url = info["entries"][0]["url"]
-            title = info["entries"][0]["title"]
+
+            future: asyncio.Future = asyncio.get_running_loop().create_future()
+            select = SearchResultSelect(entries[:5], future)
+            view = discord.ui.View()
+            view.add_item(select)
+            await ctx.followup.send("Выберите трек:", view=view, ephemeral=True)
+            try:
+                choice = await asyncio.wait_for(future, timeout=30)
+            except asyncio.TimeoutError:
+                await ctx.followup.send("Время выбора истекло", ephemeral=True)
+                return
+
+            audio_url = choice["url"]
+            title = choice["title"]
 
     track_info = TrackInfo(url=audio_url, title=title, author=ctx.author)
     queues[ctx.guild_id].append(track_info)
 
     view = discord.ui.View(timeout=None)
     view.add_item(RemoveButton(queues, track_info))
-    return await ctx.respond(f"Трек: {title} добавлен в очередь", view=view)
+    return await ctx.followup.send(f"Трек: {title} добавлен в очередь", view=view)
 
 
 async def play_queue(

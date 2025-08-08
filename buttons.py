@@ -1,8 +1,9 @@
 from typing import Dict, List
 
+import asyncio
 import discord
 from discord import Interaction
-from discord.ui import Button
+from discord.ui import Button, Select
 
 from handlers import skip_handler, queue_handler
 from models import TrackInfo
@@ -99,3 +100,21 @@ class RemoveButton(Button):
         await interaction.response.send_message(
             f"Трек {self.track_info.title} был удален из очереди"
         )
+
+
+class SearchResultSelect(Select):
+    """Выпадающий список для выбора трека из результатов поиска."""
+
+    def __init__(self, entries: List[dict], future: asyncio.Future) -> None:
+        options = [
+            discord.SelectOption(label=entry["title"][:100], value=str(index))
+            for index, entry in enumerate(entries)
+        ]
+        super().__init__(placeholder="Выберите трек", options=options)
+        self.future = future
+        self.entries = entries
+
+    async def callback(self, interaction: Interaction) -> None:
+        await interaction.response.defer()
+        index = int(self.values[0])
+        self.future.set_result(self.entries[index])
