@@ -41,8 +41,8 @@ ydl = yt_dlp.YoutubeDL(ydl_opts)
 # Очередь музыки
 queues = defaultdict(list)
 
-# Семафоры для каждого сервера
-guild_semaphore = defaultdict(list)
+# Семафоры для каждого сервера создаются по мере необходимости
+guild_semaphore = defaultdict(lambda: asyncio.Semaphore(1))
 
 
 @bot.event
@@ -86,9 +86,6 @@ async def play(ctx: ApplicationContext, *, query: str) -> None:
 
     guild_id = ctx.guild_id
     semaphore = guild_semaphore[guild_id]
-    if not semaphore:
-        semaphore = asyncio.Semaphore(1)
-        guild_semaphore[guild_id] = semaphore
     async with semaphore:
         if not queues[guild_id]:
             return
