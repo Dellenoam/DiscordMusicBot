@@ -58,6 +58,18 @@ VIDEO_URL_RE = re.compile(
 )
 
 
+def format_time(seconds: float) -> str:
+    """Возвращает время в формате ММ:СС."""
+    minutes, seconds = divmod(int(seconds), 60)
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def build_progress_bar(current: float, total: float, length: int = 20) -> str:
+    """Создаёт строку прогресс-бара."""
+    filled = int(length * current / total) if total else 0
+    return "█" * filled + "─" * (length - filled)
+
+
 @bot.event
 async def on_ready() -> None:
     """
@@ -130,6 +142,7 @@ async def enqueue(ctx: ApplicationContext, query: str) -> Optional[WebhookMessag
             )
             audio_url = info["url"]
             title = info["title"]
+            duration = info.get("duration", 0)
         else:
             info = await asyncio.to_thread(
                 lambda: ydl.extract_info(f"ytsearch5:{query}", download=False)
@@ -152,8 +165,11 @@ async def enqueue(ctx: ApplicationContext, query: str) -> Optional[WebhookMessag
 
             audio_url = choice["url"]
             title = choice["title"]
+            duration = choice.get("duration", 0)
 
-    track_info = TrackInfo(url=audio_url, title=title, author=ctx.author)
+    track_info = TrackInfo(
+        url=audio_url, title=title, author=ctx.author, duration=duration
+    )
     queues[ctx.guild_id].append(track_info)
 
     view = discord.ui.View(timeout=None)
@@ -198,10 +214,56 @@ async def play_queue(
     view = discord.ui.View(timeout=None)
     view.add_item(SkipButton())
     view.add_item(QueueButton(queues))
-    await track_added_message.reply(f"Сейчас играет: {track.title}", view=view)
 
+    embed = discord.Embed(title="Сейчас играет", description=track.title)
+    embed.add_field(
+        name="Длительность",
+        value=format_time(track.duration) if track.duration else "Неизвестно",
+    )
+    embed.add_field(name="Добавил", value=track.author.mention)
+    if track.duration:
+        progress_bar = build_progress_bar(0, track.duration)
+        embed.add_field(
+            name="Прогресс",
+            value=(
+                f"{progress_bar}\n00:00 / {format_time(track.duration)}\n"
+                f"Осталось: {format_time(track.duration)}"
+            ),
+            inline=False,
+        )
+
+    message = await track_added_message.reply(embed=embed, view=view)
+
+    start_time = asyncio.get_running_loop().time()
     while ctx.voice_client.is_playing():
-        await asyncio.sleep(1)
+        if track.duration:
+            elapsed = asyncio.get_running_loop().time() - start_time
+            remaining = max(track.duration - elapsed, 0)
+            progress_bar = build_progress_bar(elapsed, track.duration)
+            embed.set_field_at(
+                2,
+                name="Прогресс",
+                value=(
+                    f"{progress_bar}\n{format_time(elapsed)} / {format_time(track.duration)}\n"
+                    f"Осталось: {format_time(remaining)}"
+                ),
+                inline=False,
+            )
+            await message.edit(embed=embed)
+        await asyncio.sleep(5)
+
+    if track.duration:
+        embed.set_field_at(
+            2,
+            name="Прогресс",
+            value=(
+                f"{build_progress_bar(track.duration, track.duration)}\n"
+                f"{format_time(track.duration)} / {format_time(track.duration)}\n"
+                "Осталось: 00:00"
+            ),
+            inline=False,
+        )
+        await message.edit(embed=embed)
 
     if skip_votes[guild_id]:
         del skip_votes[guild_id]
@@ -232,6 +294,19 @@ async def queue(ctx: ApplicationContext) -> None:
         ctx (ApplicationContext): Контекст приложения.
     """
     await queue_handler(ctx.interaction, queues)
+
+
+@bot.slash_command(name="help", description="Список доступных команд")
+async def help_command(ctx: ApplicationContext) -> None:
+    """Отображает список доступных команд."""
+    embed = discord.Embed(title="Доступные команды")
+    for command in bot.application_commands:
+        embed.add_field(
+            name=f"/{command.name}",
+            value=command.description or "Нет описания",
+            inline=False,
+        )
+    await ctx.respond(embed=embed, ephemeral=True)
 
 
 # Запускаем бота, если токен присутствует
