@@ -2,7 +2,7 @@ from typing import Dict
 from discord.ui import Button
 from handlers import skip_handler, queue_handler
 import discord
-from discord.interactions import Interaction
+from discord import Interaction
 
 
 class SkipButton(Button):
@@ -47,7 +47,7 @@ class QueueButton(Button):
         self.queues = queues
         self.callback = self.button_callback
 
-    async def button_callback(self, interaction) -> None:
+    async def button_callback(self, interaction: Interaction) -> None:
         await queue_handler(interaction, self.queues)
 
 
