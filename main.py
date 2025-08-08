@@ -41,6 +41,14 @@ queues = defaultdict(list)
 # Семафоры для каждого сервера
 guild_semaphore = defaultdict(list)
 
+# Предварительно компилированные регулярные выражения
+NOT_VIDEO_URL_RE = re.compile(
+    r"^(?:https?://)?(?:www\.)?(youtube.com|youtu.be)/?$"
+)
+VIDEO_URL_RE = re.compile(
+    r"^(?:https?://)?(?:www\.)?(?:youtu\.be/|youtube\.com/(?:embed/|v/|watch\?v=|watch\?.+&v=))([\w-]{11})$"
+)
+
 
 @bot.event
 async def on_ready() -> None:
@@ -107,17 +115,11 @@ async def enqueue(ctx: ApplicationContext, query: str) -> Optional[WebhookMessag
         yt_dlp.utils.UnsupportedError: Если введена ссылка на YouTube, а не на видео.
     """
     with ydl:
-        not_video_url_regex = re.compile(
-            r"^(?:https?://)?(?:www\.)?(youtube.com|youtu.be)/?$"
-        )
-        video_url_regex = re.compile(
-            r"^(?:https?://)?(?:www\.)?(?:youtu\.be/|youtube\.com/(?:embed/|v/|watch\?v=|watch\?.+&v=))([\w-]{11})$"
-        )
-        if bool(not_video_url_regex.match(query)):
+        if bool(NOT_VIDEO_URL_RE.match(query)):
             raise yt_dlp.utils.UnsupportedError(
                 "ERROR: Введена ссылка на YouTube, а не на видео с него"
             )
-        if bool(video_url_regex.match(query)):
+        if bool(VIDEO_URL_RE.match(query)):
             info = await asyncio.to_thread(
                 lambda: ydl.extract_info(query, download=False)
             )
