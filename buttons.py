@@ -118,3 +118,4 @@ class SearchResultSelect(Select):
         await interaction.response.defer()
         index = int(self.values[0])
         self.future.set_result(self.entries[index])
+        await interaction.message.delete()
