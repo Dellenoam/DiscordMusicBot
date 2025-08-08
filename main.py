@@ -16,8 +16,15 @@ from models import TrackInfo
 # Загружаем .env
 dotenv.load_dotenv()
 
+token = os.getenv("DISCORD_TOKEN")
+if not token:
+    raise ValueError("DISCORD_TOKEN environment variable is not set or empty.")
+
 # Создаем объект бота
-bot = commands.Bot()
+intents = discord.Intents.default()
+intents.message_content = True
+intents.voice_states = True
+bot = commands.Bot(intents=intents)
 
 # Создаем объект для загрузки видео с YouTube
 ydl_opts = {
@@ -39,8 +46,8 @@ ydl = yt_dlp.YoutubeDL(ydl_opts)
 # Очередь музыки
 queues = defaultdict(list)
 
-# Семафоры для каждого сервера
-guild_semaphore = defaultdict(list)
+# Семафоры для каждого сервера создаются по мере необходимости
+guild_semaphore = defaultdict(lambda: asyncio.Semaphore(1))
 
 
 @bot.event
@@ -84,9 +91,6 @@ async def play(ctx: ApplicationContext, *, query: str) -> None:
 
     guild_id = ctx.guild_id
     semaphore = guild_semaphore[guild_id]
-    if not semaphore:
-        semaphore = asyncio.Semaphore(1)
-        guild_semaphore[guild_id] = semaphore
     async with semaphore:
         if not queues[guild_id]:
             return
@@ -157,7 +161,17 @@ async def play_queue(
     track = queues[guild_id].pop(0)
 
     if not ctx.voice_client:
-        await ctx.author.voice.channel.connect()
+        try:
+            await ctx.author.voice.channel.connect()
+        except (discord.ClientException, discord.Forbidden):
+            await track_added_message.reply(
+                "Не удалось подключиться к голосовому каналу. Проверьте права бота. Трек не будет добавлен в очередь."
+            )
+            if ctx.voice_client:
+                await ctx.voice_client.disconnect()
+            if not queues[guild_id] and guild_id in guild_semaphore:
+                del guild_semaphore[guild_id]
+            return
 
     ctx.voice_client.play(
         discord.FFmpegPCMAudio(
@@ -205,5 +219,5 @@ async def queue(ctx: ApplicationContext) -> None:
     await queue_handler(ctx.interaction, queues)
 
 
-# Запускаем бота
-bot.run(os.getenv("DISCORD_TOKEN"))
+# Запускаем бота, если токен присутствует
+bot.run(token)

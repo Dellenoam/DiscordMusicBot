@@ -35,6 +35,14 @@ async def skip_handler(interaction: Interaction) -> None:
     skip_votes[guild_id].add(interaction.user.id)
     total_members = len(interaction.user.voice.channel.voice_states.keys()) - 1
 
+    if total_members == 0:
+        voice_client.stop()
+        del skip_votes[guild_id]
+        await interaction.response.send_message(
+            "Недостаточно участников для голосования. Трек остановлен."
+        )
+        return
+
     if not len(skip_votes[guild_id]) / total_members >= 0.5:
         await interaction.response.send_message(
             f"Ты проголосовал за пропуск трека. Осталось голосов "
