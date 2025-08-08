@@ -160,7 +160,17 @@ async def play_queue(
     query = queues[guild_id].pop(0)
 
     if not ctx.voice_client:
-        await ctx.author.voice.channel.connect()
+        try:
+            await ctx.author.voice.channel.connect()
+        except (discord.ClientException, discord.Forbidden):
+            await track_added_message.reply(
+                "Не удалось подключиться к голосовому каналу. Проверьте права бота. Трек не будет добавлен в очередь."
+            )
+            if ctx.voice_client:
+                await ctx.voice_client.disconnect()
+            if not queues[guild_id] and guild_id in guild_semaphore:
+                del guild_semaphore[guild_id]
+            return
 
     ctx.voice_client.play(
         discord.FFmpegPCMAudio(
