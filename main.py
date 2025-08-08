@@ -226,8 +226,7 @@ async def play_queue(
         embed.add_field(
             name="Прогресс",
             value=(
-                f"{progress_bar}\n00:00 / {format_time(track.duration)}\n"
-                f"Осталось: {format_time(track.duration)}"
+                f"{progress_bar}\n00:00 / {format_time(track.duration)}"
             ),
             inline=False,
         )
@@ -244,8 +243,7 @@ async def play_queue(
                 2,
                 name="Прогресс",
                 value=(
-                    f"{progress_bar}\n{format_time(elapsed)} / {format_time(track.duration)}\n"
-                    f"Осталось: {format_time(remaining)}"
+                    f"{progress_bar}\n{format_time(elapsed)} / {format_time(track.duration)}"
                 ),
                 inline=False,
             )
@@ -258,8 +256,7 @@ async def play_queue(
             name="Прогресс",
             value=(
                 f"{build_progress_bar(track.duration, track.duration)}\n"
-                f"{format_time(track.duration)} / {format_time(track.duration)}\n"
-                "Осталось: 00:00"
+                f"{format_time(track.duration)} / {format_time(track.duration)}"
             ),
             inline=False,
         )
