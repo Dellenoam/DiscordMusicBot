@@ -16,7 +16,10 @@ from handlers import skip_handler, queue_handler, skip_votes
 dotenv.load_dotenv()
 
 # Создаем объект бота
-bot = commands.Bot()
+intents = discord.Intents.default()
+intents.message_content = True
+intents.voice_states = True
+bot = commands.Bot(intents=intents)
 
 # Создаем объект для загрузки видео с YouTube
 ydl_opts = {
