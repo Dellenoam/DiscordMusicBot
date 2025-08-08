@@ -44,6 +44,10 @@ Users can add tracks to the queue, skip the current track, remove track from que
 
     ```
     DISCORD_TOKEN=your_discord_token_here
+    # Optional: percentage of votes required to skip
+    SKIP_VOTE_PERCENT=0.5
+    # Optional: allow administrators to skip instantly
+    ADMIN_INSTANT_SKIP=true
     ```
 
 7. Run the bot:

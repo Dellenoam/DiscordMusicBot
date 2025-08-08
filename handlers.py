@@ -1,9 +1,23 @@
+import os
 from collections import defaultdict
-from typing import Dict, List
+from typing import Dict, List, Tuple
+
 from discord.interactions import Interaction
+
 from models import TrackInfo
 
 skip_votes = defaultdict(set)
+
+
+def _get_skip_settings() -> Tuple[float, bool]:
+    """Возвращает порог голосов и флаг мгновенного пропуска администратором."""
+    percent = float(os.getenv("SKIP_VOTE_PERCENT", 0.5))
+    admin_instant = os.getenv("ADMIN_INSTANT_SKIP", "true").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    return percent, admin_instant
 
 
 async def skip_handler(interaction: Interaction) -> None:
@@ -28,8 +42,18 @@ async def skip_handler(interaction: Interaction) -> None:
         )
         return
 
+    vote_percent, admin_instant = _get_skip_settings()
+
+    if admin_instant and interaction.user.guild_permissions.administrator:
+        voice_client.stop()
+        skip_votes.pop(guild_id, None)
+        await interaction.response.send_message("Трек пропущен администратором")
+        return
+
     if interaction.user.id in skip_votes[guild_id]:
-        await interaction.response.send_message("Ты уже проголосовал", ephemeral=True)
+        await interaction.response.send_message(
+            "Ты уже проголосовал", ephemeral=True
+        )
         return
 
     skip_votes[guild_id].add(interaction.user.id)
@@ -43,10 +67,11 @@ async def skip_handler(interaction: Interaction) -> None:
         )
         return
 
-    if not len(skip_votes[guild_id]) / total_members >= 0.5:
+    required_votes = round(total_members * vote_percent)
+    if len(skip_votes[guild_id]) < required_votes:
         await interaction.response.send_message(
-            f"Ты проголосовал за пропуск трека. Осталось голосов "
-            f"{round(total_members * 0.5) - len(skip_votes[guild_id])}"
+            "Ты проголосовал за пропуск трека. Осталось голосов "
+            f"{required_votes - len(skip_votes[guild_id])}"
         )
         return
 
