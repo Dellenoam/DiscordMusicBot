@@ -11,6 +11,7 @@ from discord.webhook import WebhookMessage
 import yt_dlp
 from buttons import SkipButton, QueueButton, RemoveButton
 from handlers import skip_handler, queue_handler, skip_votes
+from models import TrackInfo
 
 # Загружаем .env
 dotenv.load_dotenv()
@@ -137,7 +138,7 @@ async def enqueue(ctx: ApplicationContext, query: str) -> Optional[WebhookMessag
             audio_url = info["entries"][0]["url"]
             title = info["entries"][0]["title"]
 
-    track_info = {"url": audio_url, "title": title, "author": ctx.author}
+    track_info = TrackInfo(url=audio_url, title=title, author=ctx.author)
     queues[ctx.guild_id].append(track_info)
 
     view = discord.ui.View(timeout=None)
@@ -157,7 +158,7 @@ async def play_queue(
     """
     guild_id = ctx.guild.id
 
-    query = queues[guild_id].pop(0)
+    track = queues[guild_id].pop(0)
 
     if not ctx.voice_client:
         try:
@@ -174,7 +175,7 @@ async def play_queue(
 
     ctx.voice_client.play(
         discord.FFmpegPCMAudio(
-            query["url"],
+            track.url,
             before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -vn",
         )
     )
@@ -182,7 +183,7 @@ async def play_queue(
     view = discord.ui.View(timeout=None)
     view.add_item(SkipButton())
     view.add_item(QueueButton(queues))
-    await track_added_message.reply(f"Сейчас играет: {query['title']}", view=view)
+    await track_added_message.reply(f"Сейчас играет: {track.title}", view=view)
 
     while ctx.voice_client.is_playing():
         await asyncio.sleep(1)

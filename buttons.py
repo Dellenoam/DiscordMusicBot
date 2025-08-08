@@ -1,8 +1,11 @@
-from typing import Dict
-from discord.ui import Button
-from handlers import skip_handler, queue_handler
+from typing import Dict, List
+
 import discord
 from discord import Interaction
+from discord.ui import Button
+
+from handlers import skip_handler, queue_handler
+from models import TrackInfo
 
 
 class SkipButton(Button):
@@ -42,7 +45,7 @@ class QueueButton(Button):
         button_callback: Обработчик нажатия кнопки для просмотра текущей очереди.
     """
 
-    def __init__(self, queues: Dict[int, list]) -> None:
+    def __init__(self, queues: Dict[int, List[TrackInfo]]) -> None:
         super().__init__(label="Очередь", style=discord.ButtonStyle.gray, emoji="🎵")
         self.queues = queues
         self.callback = self.button_callback
@@ -60,13 +63,13 @@ class RemoveButton(Button):
         style (discord.ButtonStyle): Стиль кнопки.
         emoji (str): Эмодзи для кнопки.
         queues (dict): Словарь очередей.
-        track_info (dict): Информация о треке.
+        track_info (TrackInfo): Информация о треке.
 
     Methods:
         button_callback: Обработчик нажатия кнопки для удаления трека из очереди.
     """
 
-    def __init__(self, queues: Dict[int, list], track_info: dict) -> None:
+    def __init__(self, queues: Dict[int, List[TrackInfo]], track_info: TrackInfo) -> None:
         super().__init__(label="Удалить", style=discord.ButtonStyle.gray, emoji="❌")
         self.queues = queues
         self.track_info = track_info
@@ -79,7 +82,7 @@ class RemoveButton(Button):
         Parameters:
             interaction (Interaction): Взаимодействие с кнопкой.
         """
-        if interaction.user != self.track_info["author"]:
+        if interaction.user != self.track_info.author:
             await interaction.response.send_message(
                 "Ты не можешь удалять треки, добавленные другими пользователями",
                 ephemeral=True,
@@ -88,11 +91,11 @@ class RemoveButton(Button):
 
         if self.track_info not in self.queues[interaction.guild_id]:
             await interaction.response.send_message(
-                f'Трек {self.track_info["title"]} отсутствует в очереди'
+                f"Трек {self.track_info.title} отсутствует в очереди"
             )
             return
 
         self.queues[interaction.guild_id].remove(self.track_info)
         await interaction.response.send_message(
-            f'Трек {self.track_info["title"]} был удален из очереди'
+            f"Трек {self.track_info.title} был удален из очереди"
         )

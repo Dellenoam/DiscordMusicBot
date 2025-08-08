@@ -1,6 +1,7 @@
 from collections import defaultdict
-from typing import Dict
+from typing import Dict, List
 from discord.interactions import Interaction
+from models import TrackInfo
 
 skip_votes = defaultdict(set)
 
@@ -54,21 +55,21 @@ async def skip_handler(interaction: Interaction) -> None:
     await interaction.response.send_message("Трек пропущен")
 
 
-async def queue_handler(interaction: Interaction, queues: Dict[int, list]) -> None:
+async def queue_handler(interaction: Interaction, queues: Dict[int, List[TrackInfo]]) -> None:
     """
     Обработчик команды для просмотра текущей очереди.
 
     Parameters:
         interaction (Interaction): Взаимодействие с кнопкой.
-        queues (Dict[int, list]): Словарь очередей.
+        queues (Dict[int, List[TrackInfo]]): Словарь очередей.
     """
     guild_id = interaction.guild_id
 
     if queues.get(guild_id):
         formatted_queue = "\n".join(
             [
-                f'{index + 1}. {query["title"]}'
-                for index, query in enumerate(queues[guild_id])
+                f"{index + 1}. {track.title}"
+                for index, track in enumerate(queues[guild_id])
             ]
         )
         message = f"Следующие треки:\n{formatted_queue}"
