@@ -2,6 +2,7 @@ import os
 from collections import defaultdict
 from typing import Dict, List, Tuple
 
+import discord
 from discord.interactions import Interaction
 
 from models import TrackInfo
@@ -91,14 +92,18 @@ async def queue_handler(interaction: Interaction, queues: Dict[int, List[TrackIn
     guild_id = interaction.guild_id
 
     if queues.get(guild_id):
-        formatted_queue = "\n".join(
-            [
-                f"{index + 1}. {track.title}"
-                for index, track in enumerate(queues[guild_id])
-            ]
+        tracks = queues[guild_id]
+        embed = discord.Embed(
+            title="Очередь воспроизведения", color=discord.Color.blurple()
         )
-        message = f"Следующие треки:\n{formatted_queue}"
-        await interaction.response.send_message(message)
+        lines = [
+            f"{index + 1}. {track.title}"
+            for index, track in enumerate(tracks[:10])
+        ]
+        if len(tracks) > 10:
+            lines.append(f"...и еще {len(tracks) - 10} треков")
+        embed.description = "\n".join(lines)
+        await interaction.response.send_message(embed=embed)
         return
 
     await interaction.response.send_message("Очередь пуста")
