@@ -23,7 +23,9 @@ class SkipButton(Button):
     """
 
     def __init__(self) -> None:
-        super().__init__(label="Пропустить", style=discord.ButtonStyle.gray, emoji="⏭")
+        super().__init__(
+            label="Пропустить", style=discord.ButtonStyle.danger, emoji="⏭"
+        )
         self.callback = self.button_callback
 
     @staticmethod
@@ -47,7 +49,7 @@ class QueueButton(Button):
     """
 
     def __init__(self, queues: Dict[int, List[TrackInfo]]) -> None:
-        super().__init__(label="Очередь", style=discord.ButtonStyle.gray, emoji="🎵")
+        super().__init__(label="Очередь", style=discord.ButtonStyle.primary, emoji="🎵")
         self.queues = queues
         self.callback = self.button_callback
 
@@ -71,7 +73,7 @@ class RemoveButton(Button):
     """
 
     def __init__(self, queues: Dict[int, List[TrackInfo]], track_info: TrackInfo) -> None:
-        super().__init__(label="Удалить", style=discord.ButtonStyle.gray, emoji="❌")
+        super().__init__(label="Удалить", style=discord.ButtonStyle.danger, emoji="❌")
         self.queues = queues
         self.track_info = track_info
         self.callback = self.button_callback

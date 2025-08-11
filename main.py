@@ -143,6 +143,7 @@ async def enqueue(ctx: ApplicationContext, query: str) -> Optional[WebhookMessag
             audio_url = info["url"]
             title = info["title"]
             duration = info.get("duration", 0)
+            thumbnail = info.get("thumbnail")
         else:
             info = await asyncio.to_thread(
                 lambda: ydl.extract_info(f"ytsearch5:{query}", download=False)
@@ -166,15 +167,31 @@ async def enqueue(ctx: ApplicationContext, query: str) -> Optional[WebhookMessag
             audio_url = choice["url"]
             title = choice["title"]
             duration = choice.get("duration", 0)
+            thumbnail = choice.get("thumbnail")
 
     track_info = TrackInfo(
-        url=audio_url, title=title, author=ctx.author, duration=duration
+        url=audio_url,
+        title=title,
+        author=ctx.author,
+        duration=duration,
+        thumbnail=thumbnail,
     )
     queues[ctx.guild_id].append(track_info)
+    position = len(queues[ctx.guild_id])
+
+    embed = discord.Embed(
+        title="Трек добавлен в очередь", description=title, color=discord.Color.green()
+    )
+    embed.add_field(name="Позиция", value=str(position))
+    if duration:
+        embed.add_field(name="Длительность", value=format_time(duration))
+    embed.add_field(name="Добавил", value=ctx.author.mention, inline=False)
+    if thumbnail:
+        embed.set_thumbnail(url=thumbnail)
 
     view = discord.ui.View(timeout=None)
     view.add_item(RemoveButton(queues, track_info))
-    return await ctx.followup.send(f"Трек: {title} добавлен в очередь", view=view)
+    return await ctx.followup.send(embed=embed, view=view)
 
 
 async def play_queue(
@@ -215,12 +232,18 @@ async def play_queue(
     view.add_item(SkipButton())
     view.add_item(QueueButton(queues))
 
-    embed = discord.Embed(title="Сейчас играет", description=track.title)
+    embed = discord.Embed(
+        title="Сейчас играет",
+        description=track.title,
+        color=discord.Color.blurple(),
+    )
     embed.add_field(
         name="Длительность",
         value=format_time(track.duration) if track.duration else "Неизвестно",
     )
     embed.add_field(name="Добавил", value=track.author.mention)
+    if track.thumbnail:
+        embed.set_thumbnail(url=track.thumbnail)
     if track.duration:
         progress_bar = build_progress_bar(0, track.duration)
         embed.add_field(

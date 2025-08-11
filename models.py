@@ -1,4 +1,6 @@
 from dataclasses import dataclass
+from typing import Optional
+
 import discord
 
 
@@ -8,3 +10,4 @@ class TrackInfo:
     title: str
     author: discord.abc.User
     duration: int
+    thumbnail: Optional[str] = None
