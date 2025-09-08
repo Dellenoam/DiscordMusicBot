@@ -208,7 +208,7 @@ async def play_queue(
 
     track = queues[guild_id].pop(0)
 
-    if not ctx.voice_client:
+    if not ctx.voice_client or not ctx.voice_client.is_connected():
         try:
             await ctx.author.voice.channel.connect()
         except (discord.ClientException, discord.Forbidden):
@@ -270,7 +270,10 @@ async def play_queue(
                 ),
                 inline=False,
             )
-            await message.edit(embed=embed)
+            try:
+                await message.edit(embed=embed)
+            except discord.NotFound:
+                break
         await asyncio.sleep(5)
 
     if track.duration:
@@ -283,7 +286,10 @@ async def play_queue(
             ),
             inline=False,
         )
-        await message.edit(embed=embed)
+        try:
+            await message.edit(embed=embed)
+        except discord.NotFound:
+            pass
 
     if skip_votes[guild_id]:
         del skip_votes[guild_id]
