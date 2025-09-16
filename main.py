@@ -12,6 +12,9 @@ import yt_dlp
 from buttons import SkipButton, QueueButton, RemoveButton, SearchResultSelect
 from handlers import skip_handler, queue_handler, skip_votes
 from models import TrackInfo
+from patches import apply_voice_encryption_patch
+
+apply_voice_encryption_patch()
 
 # Загружаем .env
 dotenv.load_dotenv()
