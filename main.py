@@ -209,11 +209,13 @@ async def play_queue(
     """
     guild_id = ctx.guild.id
 
-    track = queues[guild_id].pop(0)
+    track = queues[guild_id][0]
 
-    if not ctx.voice_client or not ctx.voice_client.is_connected():
+    voice_client = ctx.voice_client
+
+    if not voice_client or not voice_client.is_connected():
         try:
-            await ctx.author.voice.channel.connect()
+            voice_client = await ctx.author.voice.channel.connect()
         except (discord.ClientException, discord.Forbidden):
             await track_added_message.reply(
                 "Не удалось подключиться к голосовому каналу. Проверьте права бота. Трек не будет добавлен в очередь."
@@ -224,7 +226,15 @@ async def play_queue(
                 del guild_semaphore[guild_id]
             return
 
-    ctx.voice_client.play(
+    if not voice_client or not voice_client.is_connected():
+        await track_added_message.reply(
+            "Бот не успел подключиться к голосовому каналу. Попробуйте снова через пару секунд."
+        )
+        return
+
+    track = queues[guild_id].pop(0)
+
+    voice_client.play(
         discord.FFmpegPCMAudio(
             track.url,
             before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -vn",
@@ -260,7 +270,7 @@ async def play_queue(
     message = await track_added_message.reply(embed=embed, view=view)
 
     start_time = asyncio.get_running_loop().time()
-    while ctx.voice_client.is_playing():
+    while voice_client.is_playing():
         if track.duration:
             elapsed = asyncio.get_running_loop().time() - start_time
             remaining = max(track.duration - elapsed, 0)
@@ -299,7 +309,7 @@ async def play_queue(
 
     if not queues[guild_id]:
         await ctx.send("Воспроизведение завершено. Выход из канала")
-        await ctx.voice_client.disconnect()
+        await voice_client.disconnect()
         del guild_semaphore[guild_id]
 
 
