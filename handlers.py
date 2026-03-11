@@ -1,5 +1,6 @@
 import os
 from collections import defaultdict
+from math import ceil
 from typing import Dict, List, Tuple
 
 import discord
@@ -12,7 +13,12 @@ skip_votes = defaultdict(set)
 
 def _get_skip_settings() -> Tuple[float, bool]:
     """Возвращает порог голосов и флаг мгновенного пропуска администратором."""
-    percent = float(os.getenv("SKIP_VOTE_PERCENT", 0.5))
+    percent_raw = os.getenv("SKIP_VOTE_PERCENT", "0.5")
+    try:
+        percent = float(percent_raw)
+    except ValueError:
+        percent = 0.5
+    percent = max(0.0, min(percent, 1.0))
     admin_instant = os.getenv("ADMIN_INSTANT_SKIP", "true").lower() in (
         "1",
         "true",
@@ -68,7 +74,7 @@ async def skip_handler(interaction: Interaction) -> None:
         )
         return
 
-    required_votes = round(total_members * vote_percent)
+    required_votes = max(1, ceil(total_members * vote_percent))
     if len(skip_votes[guild_id]) < required_votes:
         await interaction.response.send_message(
             "Ты проголосовал за пропуск трека. Осталось голосов "

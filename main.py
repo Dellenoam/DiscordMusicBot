@@ -109,13 +109,16 @@ async def play(ctx: ApplicationContext, *, query: str) -> None:
         yt_dlp.utils.ExtractorError,
         yt_dlp.utils.UnsupportedError,
     ):
-        await ctx.respond("Введена некорректная ссылка")
+        await ctx.followup.send("Введена некорректная ссылка")
         return
 
     guild_id = ctx.guild_id
     semaphore = guild_semaphore[guild_id]
     async with semaphore:
         if not queues[guild_id]:
+            return
+        voice_client = ctx.guild.voice_client
+        if voice_client and (voice_client.is_playing() or voice_client.is_paused()):
             return
         await play_queue(ctx, track_added_message)
 
@@ -134,43 +137,40 @@ async def enqueue(ctx: ApplicationContext, query: str) -> Optional[WebhookMessag
     Raises:
         yt_dlp.utils.UnsupportedError: Если введена ссылка на YouTube, а не на видео.
     """
-    with ydl:
-        if bool(NOT_VIDEO_URL_RE.match(query)):
-            raise yt_dlp.utils.UnsupportedError(
-                "ERROR: Введена ссылка на YouTube, а не на видео с него"
-            )
-        if bool(VIDEO_URL_RE.match(query)):
-            info = await asyncio.to_thread(
-                lambda: ydl.extract_info(query, download=False)
-            )
-            audio_url = info["url"]
-            title = info["title"]
-            duration = info.get("duration", 0)
-            thumbnail = info.get("thumbnail")
-        else:
-            info = await asyncio.to_thread(
-                lambda: ydl.extract_info(f"ytsearch5:{query}", download=False)
-            )
-            entries = info.get("entries") or []
-            if not entries:
-                await ctx.followup.send("Ничего не нашел по твоему запросу")
-                return
+    if bool(NOT_VIDEO_URL_RE.match(query)):
+        raise yt_dlp.utils.UnsupportedError(
+            "ERROR: Введена ссылка на YouTube, а не на видео с него"
+        )
+    if bool(VIDEO_URL_RE.match(query)):
+        info = await asyncio.to_thread(lambda: ydl.extract_info(query, download=False))
+        audio_url = info["url"]
+        title = info["title"]
+        duration = info.get("duration", 0)
+        thumbnail = info.get("thumbnail")
+    else:
+        info = await asyncio.to_thread(
+            lambda: ydl.extract_info(f"ytsearch5:{query}", download=False)
+        )
+        entries = info.get("entries") or []
+        if not entries:
+            await ctx.followup.send("Ничего не нашел по твоему запросу")
+            return
 
-            future: asyncio.Future = asyncio.get_running_loop().create_future()
-            select = SearchResultSelect(entries[:5], future)
-            view = discord.ui.View()
-            view.add_item(select)
-            await ctx.followup.send("Выберите трек:", view=view, ephemeral=True)
-            try:
-                choice = await asyncio.wait_for(future, timeout=30)
-            except asyncio.TimeoutError:
-                await ctx.followup.send("Время выбора истекло", ephemeral=True)
-                return
+        future: asyncio.Future = asyncio.get_running_loop().create_future()
+        select = SearchResultSelect(entries[:5], future)
+        view = discord.ui.View()
+        view.add_item(select)
+        await ctx.followup.send("Выберите трек:", view=view, ephemeral=True)
+        try:
+            choice = await asyncio.wait_for(future, timeout=30)
+        except asyncio.TimeoutError:
+            await ctx.followup.send("Время выбора истекло", ephemeral=True)
+            return
 
-            audio_url = choice["url"]
-            title = choice["title"]
-            duration = choice.get("duration", 0)
-            thumbnail = choice.get("thumbnail")
+        audio_url = choice["url"]
+        title = choice["title"]
+        duration = choice.get("duration", 0)
+        thumbnail = choice.get("thumbnail")
 
     track_info = TrackInfo(
         url=audio_url,
