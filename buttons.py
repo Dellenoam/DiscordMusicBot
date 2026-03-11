@@ -119,7 +119,8 @@ class SearchResultSelect(Select):
     async def callback(self, interaction: Interaction) -> None:
         await interaction.response.defer()
         index = int(self.values[0])
-        self.future.set_result(self.entries[index])
+        if not self.future.done():
+            self.future.set_result(self.entries[index])
         try:
             await interaction.message.delete()
         except discord.NotFound:
