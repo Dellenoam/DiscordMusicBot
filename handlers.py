@@ -43,7 +43,13 @@ async def skip_handler(interaction: Interaction) -> None:
     guild_id = interaction.guild_id
     voice_client = interaction.guild.voice_client
 
-    if not voice_client:
+    if not voice_client or not voice_client.is_connected():
+        await interaction.response.send_message(
+            "Сейчас ничего не играет", ephemeral=True
+        )
+        return
+
+    if not (voice_client.is_playing() or voice_client.is_paused()):
         await interaction.response.send_message(
             "Сейчас ничего не играет", ephemeral=True
         )

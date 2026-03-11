@@ -1,5 +1,6 @@
 import asyncio
 from collections import defaultdict
+from contextlib import suppress
 import os
 import re
 from typing import Optional
@@ -313,6 +314,34 @@ async def play_queue(
         del guild_semaphore[guild_id]
 
 
+async def disconnect_all_voice_clients() -> None:
+    """Отключает бота от всех голосовых каналов без выброса ошибок наружу."""
+    for voice_client in list(bot.voice_clients):
+        with suppress(Exception):
+            if voice_client.is_connected():
+                await voice_client.disconnect(force=True)
+
+
+@bot.event
+async def on_application_command_error(
+    ctx: ApplicationContext, error: discord.DiscordException
+) -> None:
+    """Обрабатывает ошибки slash-команд, чтобы они не падали в лог необработанными."""
+    original = getattr(error, "original", error)
+
+    if (
+        isinstance(original, discord.ClientException)
+        and "Not connected to voice" in str(original)
+    ):
+        message = "Бот уже отключён от голосового канала. Добавьте трек заново через /play."
+        if ctx.response.is_done():
+            await ctx.followup.send(message, ephemeral=True)
+        else:
+            await ctx.respond(message, ephemeral=True)
+        return
+
+    raise error
+
 @bot.slash_command(name="skip", description="Пропустить текущий трек")
 async def skip(ctx: ApplicationContext) -> None:
     """
@@ -349,4 +378,8 @@ async def help_command(ctx: ApplicationContext) -> None:
 
 
 # Запускаем бота, если токен присутствует
-bot.run(token)
+try:
+    bot.run(token)
+finally:
+    if bot.voice_clients:
+        asyncio.run(disconnect_all_voice_clients())
