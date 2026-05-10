@@ -13,5 +13,5 @@ __pycache__
 .command_sync.cache
 build
 dist
-README*.md
+README_RU.md
 .python-version
