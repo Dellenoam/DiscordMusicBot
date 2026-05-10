@@ -38,7 +38,7 @@ class Emoji:
     USER = "👤"
     LIVE = "🔴"
     CLEAR = "🧹"
-    REMOVE = "❌"
+    REMOVE = "✖️"
     LINK = "🔗"
     INFO = "ℹ️"
     WARN = "⚠️"

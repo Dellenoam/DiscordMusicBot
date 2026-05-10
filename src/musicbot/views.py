@@ -24,12 +24,8 @@ _LOOP_EMOJI: dict[LoopMode, str] = {
 }
 
 
-def _loop_button_style(mode: LoopMode) -> discord.ButtonStyle:
-    return (
-        discord.ButtonStyle.success
-        if mode is not LoopMode.OFF
-        else discord.ButtonStyle.secondary
-    )
+def _loop_button_style(_mode: LoopMode) -> discord.ButtonStyle:
+    return discord.ButtonStyle.secondary
 
 
 class NowPlayingView(discord.ui.View):
@@ -41,9 +37,12 @@ class NowPlayingView(discord.ui.View):
         self._sync_buttons()
 
     def _sync_buttons(self) -> None:
-        self.pause_resume.emoji = (
-            Emoji.PLAY if self.player.is_paused else Emoji.PAUSE
-        )
+        if self.player.is_paused:
+            self.pause_resume.emoji = Emoji.PLAY
+            self.pause_resume.label = "Resume"
+        else:
+            self.pause_resume.emoji = Emoji.PAUSE
+            self.pause_resume.label = "Pause"
         mode = self.player.queue.loop_mode
         self.loop.emoji = _LOOP_EMOJI[mode]
         self.loop.style = _loop_button_style(mode)
@@ -66,7 +65,7 @@ class NowPlayingView(discord.ui.View):
             return False
         return True
 
-    @discord.ui.button(emoji=Emoji.PAUSE, style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(emoji=Emoji.PAUSE, label="Pause", style=discord.ButtonStyle.secondary, row=0)
     async def pause_resume(
         self,
         interaction: discord.Interaction,
@@ -85,7 +84,7 @@ class NowPlayingView(discord.ui.View):
         self._sync_buttons()
         await interaction.response.edit_message(view=self)
 
-    @discord.ui.button(emoji=Emoji.SKIP, style=discord.ButtonStyle.primary, row=0)
+    @discord.ui.button(emoji=Emoji.SKIP, label="Skip", style=discord.ButtonStyle.secondary, row=0)
     async def skip(
         self,
         interaction: discord.Interaction,
@@ -102,7 +101,7 @@ class NowPlayingView(discord.ui.View):
             embed = Embeds.warning(result.message)
         await interaction.response.send_message(embed=embed, ephemeral=not result.skipped)
 
-    @discord.ui.button(emoji=Emoji.LOOP_OFF, style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(emoji=Emoji.LOOP_OFF, label="Loop", style=discord.ButtonStyle.secondary, row=0)
     async def loop(
         self,
         interaction: discord.Interaction,
@@ -116,7 +115,7 @@ class NowPlayingView(discord.ui.View):
             ephemeral=True,
         )
 
-    @discord.ui.button(emoji=Emoji.QUEUE, style=discord.ButtonStyle.secondary, row=0)
+    @discord.ui.button(emoji=Emoji.QUEUE, label="Queue", style=discord.ButtonStyle.secondary, row=0)
     async def show_queue(
         self,
         interaction: discord.Interaction,
@@ -129,7 +128,7 @@ class NowPlayingView(discord.ui.View):
         )
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
-    @discord.ui.button(emoji=Emoji.STOP, style=discord.ButtonStyle.danger, row=0)
+    @discord.ui.button(emoji=Emoji.STOP, label="Stop", style=discord.ButtonStyle.secondary, row=0)
     async def stop(
         self,
         interaction: discord.Interaction,
