@@ -1,0 +1,7 @@
+services:
+  musicbot:
+    build: .
+    container_name: musicbot
+    restart: unless-stopped
+    env_file: .env
+    stop_grace_period: 30s
