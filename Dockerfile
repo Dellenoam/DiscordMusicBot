@@ -26,6 +26,7 @@ RUN apt-get update \
 
 RUN useradd --create-home --uid 1000 app
 WORKDIR /app
+RUN chown app:app /app
 
 COPY --from=builder --chown=app:app /app /app
 
